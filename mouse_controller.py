@@ -14,6 +14,8 @@ class MouseController:
         self.prev_x = 0
         self.prev_y = 0
 
+        self.click_ready = True
+
     def move_mouse(self, target_x, target_y):
 
         current_x = self.prev_x + (target_x - self.prev_x) / SMOOTHENING
@@ -23,3 +25,7 @@ class MouseController:
 
         self.prev_x = current_x
         self.prev_y = current_y
+
+    def left_click(self):
+
+        pyautogui.click()

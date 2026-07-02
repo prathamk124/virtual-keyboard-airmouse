@@ -14,12 +14,11 @@ class MouseController:
         self.prev_x = 0
         self.prev_y = 0
 
-        self.click_ready = True
+    def move_mouse(self, x, y):
 
-    def move_mouse(self, target_x, target_y):
+        current_x = self.prev_x + (x - self.prev_x) / SMOOTHENING
 
-        current_x = self.prev_x + (target_x - self.prev_x) / SMOOTHENING
-        current_y = self.prev_y + (target_y - self.prev_y) / SMOOTHENING
+        current_y = self.prev_y + (y - self.prev_y) / SMOOTHENING
 
         pyautogui.moveTo(current_x, current_y)
 
@@ -29,3 +28,19 @@ class MouseController:
     def left_click(self):
 
         pyautogui.click()
+
+    def double_click(self):
+
+        pyautogui.doubleClick()
+
+    def right_click(self):
+
+        pyautogui.rightClick()
+
+    def start_drag(self):
+
+        pyautogui.mouseDown()
+
+    def stop_drag(self):
+
+        pyautogui.mouseUp()

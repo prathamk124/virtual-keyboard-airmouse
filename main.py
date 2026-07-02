@@ -1,24 +1,43 @@
 import cv2
 
+from config import (
+    CAMERA_INDEX,
+    CAMERA_WIDTH,
+    CAMERA_HEIGHT,
+    FRAME_MARGIN,
+)
+
 from hand_tracker import HandTracker
 from mouse_controller import MouseController
-from config import FRAME_MARGIN
-from gestures import GestureDetector
+from gesture_detector import GestureDetector
+from gesture_manager import GestureManager
+from mouse_action_manager import MouseActionManager
 
 
 def main():
 
-    # Open webcam
-    cap = cv2.VideoCapture(0)
+    # ----------------------------------
+    # Camera
+    # ----------------------------------
 
-    # Optional: Increase camera resolution
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap = cv2.VideoCapture(CAMERA_INDEX)
 
-    # Initialize classes
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+
+    # ----------------------------------
+    # Initialize Modules
+    # ----------------------------------
+
     tracker = HandTracker()
+
     mouse = MouseController()
-    gesture = GestureDetector()
+
+    gesture_detector = GestureDetector()
+
+    gesture_manager = GestureManager()
+
+    action_manager = MouseActionManager()
 
     while True:
 
@@ -27,80 +46,172 @@ def main():
         if not success:
             break
 
-        # Mirror the frame
         frame = cv2.flip(frame, 1)
 
-        # Draw interaction box
+        h, w, _ = frame.shape
+
+        # ----------------------------------
+        # Interaction Area
+        # ----------------------------------
+
         cv2.rectangle(
             frame,
             (FRAME_MARGIN, FRAME_MARGIN),
-            (
-                frame.shape[1] - FRAME_MARGIN,
-                frame.shape[0] - FRAME_MARGIN,
-            ),
+            (w - FRAME_MARGIN, h - FRAME_MARGIN),
             (255, 0, 255),
             2,
         )
 
-        # Detect hands
+        # ----------------------------------
+        # Detect Hands
+        # ----------------------------------
+
         frame, hands = tracker.detect_hands(frame)
 
         if hands:
 
-            for hand in hands:
+            # Select largest RIGHT hand
 
-                # Only use the right hand
-                if hand["type"] == "Right":
+            right_hands = [
+                hand
+                for hand in hands
+                if hand["type"] == "Right"
+            ]
 
-                    # Index fingertip (Landmark 8)
-                    index_x, index_y = hand["lmList"][8]
+            if right_hands:
 
-                    # Map camera coordinates to screen coordinates
-                    screen_x = (
-                        (index_x - FRAME_MARGIN)
-                        * mouse.screen_width
-                        / (frame.shape[1] - 2 * FRAME_MARGIN)
+                hand = max(
+                    right_hands,
+                    key=lambda h: h["area"]
+                )
+
+                # -----------------------------
+                # Cursor
+                # -----------------------------
+
+                index_x, index_y = hand["lmList"][8]
+
+                screen_x = (
+                    (index_x - FRAME_MARGIN)
+                    * mouse.screen_width
+                    / (w - 2 * FRAME_MARGIN)
+                )
+
+                screen_y = (
+                    (index_y - FRAME_MARGIN)
+                    * mouse.screen_height
+                    / (h - 2 * FRAME_MARGIN)
+                )
+
+                screen_x = max(
+                    0,
+                    min(mouse.screen_width, screen_x)
+                )
+
+                screen_y = max(
+                    0,
+                    min(mouse.screen_height, screen_y)
+                )
+
+                mouse.move_mouse(
+                    screen_x,
+                    screen_y,
+                )
+
+                # -----------------------------
+                # Detect Gestures
+                # -----------------------------
+
+                index_pinch = gesture_detector.is_index_pinch(hand)
+
+                middle_pinch = gesture_detector.is_middle_pinch(hand)
+
+                ring_pinch = gesture_detector.is_ring_pinch(hand)
+
+                status = "MOVE"
+
+                # ----------------------------------
+                # Double Click
+                # ----------------------------------
+
+                if middle_pinch:
+
+                    if action_manager.allow_double_click():
+
+                        mouse.double_click()
+
+                        status = "DOUBLE CLICK"
+
+                # ----------------------------------
+                # Right Click
+                # ----------------------------------
+
+                elif ring_pinch:
+
+                    if action_manager.allow_right_click():
+
+                        mouse.right_click()
+
+                        status = "RIGHT CLICK"
+
+                # ----------------------------------
+                # Left Click + Drag
+                # ----------------------------------
+
+                else:
+
+                    action = gesture_manager.update(
+                        index_pinch
                     )
 
-                    screen_y = (
-                        (index_y - FRAME_MARGIN)
-                        * mouse.screen_height
-                        / (frame.shape[0] - 2 * FRAME_MARGIN)
-                    )
+                    if action == "CLICK":
 
-                    # Keep cursor inside screen
-                    screen_x = max(0, min(mouse.screen_width, screen_x))
-                    screen_y = max(0, min(mouse.screen_height, screen_y))
+                        mouse.left_click()
 
-                    # Move mouse
-                    mouse.move_mouse(screen_x, screen_y)
-                    if gesture.is_pinching(hand):
+                        status = "LEFT CLICK"
 
-                        cv2.putText(
-                            frame,
-                            "CLICK",
-                            (30, 60),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (0,255,0),
-                            3,
-                        )
+                    elif action == "START_DRAG":
 
-                        if mouse.click_ready:
+                        mouse.start_drag()
 
-                            mouse.left_click()
+                        status = "START DRAG"
 
-                            mouse.click_ready = False
+                    elif action == "DRAG":
 
-                    else:
+                        status = "DRAGGING"
 
-                        mouse.click_ready = True
-        cv2.imshow("Virtual Keyboard & Air Mouse", frame)
+                    elif action == "STOP_DRAG":
 
-        if cv2.waitKey(1) & 0xFF == ord("q"):
+                        mouse.stop_drag()
+
+                        status = "STOP DRAG"
+
+                # ----------------------------------
+                # Draw Status
+                # ----------------------------------
+
+                cv2.putText(
+                    frame,
+                    status,
+                    (20, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.9,
+                    (0, 255, 0),
+                    2,
+                )
+
+        cv2.imshow(
+            "Virtual Keyboard & Air Mouse",
+            frame,
+        )
+
+        key = cv2.waitKey(1)
+
+        if key == ord("q"):
             break
 
     cap.release()
+
     cv2.destroyAllWindows()
 
 

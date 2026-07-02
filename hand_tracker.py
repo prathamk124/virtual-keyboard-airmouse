@@ -12,57 +12,71 @@ class HandTracker:
             static_image_mode=False,
             max_num_hands=2,
             min_detection_confidence=0.7,
-            min_tracking_confidence=0.7
+            min_tracking_confidence=0.7,
         )
 
-        self.mp_draw = mp.solutions.drawing_utils
+        self.drawer = mp.solutions.drawing_utils
+
     def detect_hands(self, frame):
 
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         results = self.hands.process(rgb)
 
-        hands = []
+        detected_hands = []
 
         if results.multi_hand_landmarks:
 
-            for hand_landmarks, handedness in zip(
+            for landmarks, handedness in zip(
                 results.multi_hand_landmarks,
-                results.multi_handedness
+                results.multi_handedness,
             ):
 
-                self.mp_draw.draw_landmarks(
+                self.drawer.draw_landmarks(
                     frame,
-                    hand_landmarks,
-                    self.mp_hands.HAND_CONNECTIONS
+                    landmarks,
+                    self.mp_hands.HAND_CONNECTIONS,
                 )
 
                 h, w, _ = frame.shape
 
                 lm_list = []
 
-                for idx, lm in enumerate(hand_landmarks.landmark):
+                xs = []
+                ys = []
+
+                for lm in landmarks.landmark:
 
                     x = int(lm.x * w)
                     y = int(lm.y * h)
 
+                    xs.append(x)
+                    ys.append(y)
+
                     lm_list.append((x, y))
 
-                    cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
+                bbox = (
+                    min(xs),
+                    min(ys),
+                    max(xs),
+                    max(ys),
+                )
 
-                    cv2.putText(
-                        frame,
-                        str(idx),
-                        (x + 5, y - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.4,
-                        (255, 0, 0),
-                        1
-                    )
+                area = (
+                    (bbox[2] - bbox[0])
+                    * (bbox[3] - bbox[1])
+                )
 
-                hands.append({
+                detected_hands.append({
+
                     "type": handedness.classification[0].label,
-                    "lmList": lm_list
+
+                    "lmList": lm_list,
+
+                    "bbox": bbox,
+
+                    "area": area,
+
                 })
 
-        return frame, hands
+        return frame, detected_hands

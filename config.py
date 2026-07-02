@@ -15,7 +15,7 @@ CAMERA_HEIGHT = 720
 # Mouse
 # ===========================
 
-SMOOTHENING = 3
+SMOOTHENING = 2
 
 FRAME_MARGIN = 100
 

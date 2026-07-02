@@ -15,6 +15,8 @@ class MouseController:
         self.prev_y = 0
 
     def move_mouse(self, x, y):
+        if abs(x - self.prev_x) < 2 and abs(y - self.prev_y) < 2:
+            return
 
         current_x = self.prev_x + (x - self.prev_x) / SMOOTHENING
 

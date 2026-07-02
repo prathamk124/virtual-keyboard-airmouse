@@ -78,5 +78,8 @@ class HandTracker:
                     "area": area,
 
                 })
-
+                detected_hands.sort(
+                    key=lambda hand: hand["area"],
+                    reverse=True,
+                )
         return frame, detected_hands

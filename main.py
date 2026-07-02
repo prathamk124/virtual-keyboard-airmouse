@@ -1,4 +1,5 @@
 import cv2
+import time
 
 from config import (
     CAMERA_INDEX,
@@ -12,6 +13,7 @@ from mouse_controller import MouseController
 from gesture_detector import GestureDetector
 from gesture_manager import GestureManager
 from mouse_action_manager import MouseActionManager
+from scroll_manager import ScrollManager
 
 
 def main():
@@ -21,23 +23,24 @@ def main():
     # ----------------------------------
 
     cap = cv2.VideoCapture(CAMERA_INDEX)
-
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+
+    cap.set(cv2.CAP_PROP_FPS, 60)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     # ----------------------------------
     # Initialize Modules
     # ----------------------------------
 
     tracker = HandTracker()
-
     mouse = MouseController()
-
     gesture_detector = GestureDetector()
-
     gesture_manager = GestureManager()
-
     action_manager = MouseActionManager()
+    scroll = ScrollManager()
+    previous_time = time.time()
+    fps = 0
 
     while True:
 
@@ -127,12 +130,35 @@ def main():
                 middle_pinch = gesture_detector.is_middle_pinch(hand)
 
                 ring_pinch = gesture_detector.is_ring_pinch(hand)
+                pinky_pinch = gesture_detector.is_pinky_pinch(hand)
 
                 status = "MOVE"
 
-                # ----------------------------------
+            # -----------------------------
+            # Scroll Mode
+            # -----------------------------
+
+            if pinky_pinch:
+
+                if not scroll.active:
+
+                    scroll.start(index_y)
+
+                scroll.update(index_y)
+
+                status = "SCROLL"
+
+            # -----------------------------
+            # Exit Scroll
+            # -----------------------------
+
+            else:
+
+                if scroll.active:
+
+                    scroll.stop()
+
                 # Double Click
-                # ----------------------------------
 
                 if middle_pinch:
 
@@ -199,9 +225,27 @@ def main():
                     (0, 255, 0),
                     2,
                 )
+        current_time = time.time()
+
+        current_fps = 1 / (current_time - previous_time)
+
+        previous_time = current_time
+
+        # Smooth the FPS display
+        fps = (fps * 0.9) + (current_fps * 0.1)
+
+        cv2.putText(
+            frame,
+            f"FPS: {int(fps)}",
+            (20, 80),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 255, 0),
+            2,
+        )
 
         cv2.imshow(
-            "Virtual Keyboard & Air Mouse",
+            "Virtual Keyboard & Air Mouse", 
             frame,
         )
 

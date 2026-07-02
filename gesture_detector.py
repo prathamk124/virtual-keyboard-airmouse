@@ -56,3 +56,15 @@ class GestureDetector:
     def is_ring_pinch(self, hand):
 
         return self.thumb_ring(hand) < PINCH_THRESHOLD
+    def thumb_pinky(self, hand):
+
+        return self.distance(
+
+            hand["lmList"][4],
+
+            hand["lmList"][20]
+
+        )
+    def is_pinky_pinch(self, hand):
+
+        return self.thumb_pinky(hand) < PINCH_THRESHOLD    

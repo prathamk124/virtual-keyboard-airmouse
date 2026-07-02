@@ -1,7 +1,10 @@
 import cv2
+import pyautogui
 
 from hand_tracker import HandTracker
-
+from mouse_controller import MouseController
+tracker = HandTracker()
+mouse = MouseController()
 
 def main():
 
@@ -26,7 +29,14 @@ def main():
 
                 hand_type = hand["type"]
 
-                print(hand_type)
+                if hand["type"] == "Right":
+
+                    index_x, index_y = hand["lmList"][8]
+
+                    screen_x = index_x * mouse.screen_width / frame.shape[1]
+                    screen_y = index_y * mouse.screen_height / frame.shape[0]
+
+                    mouse.move_mouse(screen_x, screen_y)
 
         cv2.imshow("Virtual Keyboard & Air Mouse", frame)
 
